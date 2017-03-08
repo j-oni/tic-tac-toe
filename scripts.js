@@ -71,19 +71,117 @@ var AI = function(level) {
 	var game = {};
 
 	function minimaxValue(state) {
-		
+		if (state.isTerminal()) {
+			return Game.score(state);
+		} else {
+			var stateScore;
+
+			if (state.turn === 'X') {
+				stateScore = -1000;
+			} else {
+				stateScore = 1000;
+			}
+
+			var availablePositions = state.emptyCells();
+
+			var availableNextStates = availablePositions.map(function(pos) {
+				var action = new AIAction(pos);
+				var nextState = action.applyTo(state);
+				return nextState;
+			});
+
+			availableNextStates.forEach(function(nextState) {
+				var nextScore = minimaxValue(nextState);
+
+				if (state.turn === 'X') {
+					if (nextScore > stateScore) {
+						stateScore = nextScore;
+					}
+				} else {
+					if (nextScore < stateScore) {
+						stateScore = nextScore;
+					}
+				}
+			});
+
+			return stateScore;
+		}
 	}
 
 	function takeABlindMove(turn) {
-		
+		var available = game.currentState.emptyCells();
+		var randomCell = available[Math.floor(Math.random() * available.length)];
+		var action = new AIAction(randomCell);
+
+		var next = action.applyTo(game.currentState);
+
+		ui.insertAt(randomCell, turn);
+
+		game.advanceTo(next);
 	}
 
 	function takeANoviceMove(turn) {
-		
+		var available = game.currentState.emptyCells();
+
+		var availableActions = available.map(function(pos) {
+			var action = new AIAction(pos);
+
+			var nextState = action.applyTo(game.currentState);
+
+			action.minimaxVal = minimaxValue(nextState);
+
+			return action;
+		});
+
+		if (turn === 'X') {
+			availableActions.sort(AIAction.DESCENDING);
+		} else {
+			availableActions.sort(AIAction.ASCENDING)
+		}
+
+		var chosenAction;
+		if (Math.random()*100 <= 40) {
+			chosenAction = availableActions[0];
+		} else {
+			if (availableActions.length >= 2) {
+				chosenAction = availableActions[1];
+			} else {
+				chosenAction = availableActions[0];
+			}
+		}
+
+		var next = chosenAction.applyTo(game.currentState);
+
+		ui.insertAt(chosenAction.movePosition, turn);
+
+		game.advanceTo(next);
 	}
 
 	function takeAMasterMove(turn) {
+		var available = game.currentState.emptyCells();
 
+		var availableActions = available.map(function(pos) {
+			var action = new AIAction(pos);
+
+			var next = action.applyTo(game.currentState);
+
+			action.minimaxVal = minimaxValue(next);
+
+			return action;
+		});
+
+		if (turn === 'X') {
+			availableActions.sort(AIAction.DESCENDING);
+		} else {
+			availableActions.sort(AIAction.ASCENDING);
+		}
+
+		var chosenAction = availableActions[0];
+		var next = chosenAction.applyTo(game.currentState);
+
+		ui.insertAt(chosenAction.movePosition, turn);
+
+		game.advanceTo(next);
 	}
 
 	this.plays = function(_game) {
@@ -174,4 +272,17 @@ var Game = function(autoPlayer) {
 			this.status = 'running';
 		}
 	};
+
+	this.score = function(_state) {
+		if(_state.result !== 'still running') {
+			if(_state.result === 'X-won') {
+				return 10 - _state.oMovesCount;
+			} else if (_state.result === 'O-win') {
+				return -10 + _state.oMovesCount;
+			} else {
+				return 0;
+			}
+		}
+	}
 };
+
